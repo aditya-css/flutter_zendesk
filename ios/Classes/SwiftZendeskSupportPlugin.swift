@@ -14,7 +14,8 @@ public class SwiftZendeskSupportPlugin: NSObject, FlutterPlugin {
     
     var chatConfiguration: ChatConfiguration?
     var chatAPIConfiguration: ChatAPIConfiguration?
-    
+    var enablePreChatForm: Bool = false
+
     public static func register(with registrar: FlutterPluginRegistrar) {
         let channel = FlutterMethodChannel(name: "zendesk_support", binaryMessenger: registrar.messenger())
         let instance = SwiftZendeskSupportPlugin()
@@ -27,11 +28,19 @@ public class SwiftZendeskSupportPlugin: NSObject, FlutterPlugin {
         case "getPlatformVersion":
             result("iOS " + UIDevice.current.systemVersion)
         case "initialize":
-            initialize(dictionary: dic!)
-            result(true)
+            if(dic != nil) {
+                initialize(dictionary: dic!)
+                result(true)
+            } else {
+                result(false)
+            }
         case "setVisitorInfo":
-            setVisitorInfo(dictionary: dic!)
-            result(true)
+            if(dic != nil) {
+                setVisitorInfo(dictionary: dic!)
+                result(true)
+            } else {
+                result(false)
+            }
         case "startChat":
             do {
                 try startChat()
@@ -48,9 +57,10 @@ public class SwiftZendeskSupportPlugin: NSObject, FlutterPlugin {
         guard let zendeskUrl =  dictionary["zendeskUrl"],
                 let appId = dictionary["appId"],
                 let oauthClientId = dictionary["oauthClientId"],
-                let chatAccountKey = dictionary["chatAccountKey"]
-        else{ return }
-        
+                let chatAccountKey = dictionary["chatAccountKey"],
+                let shouldAskUserDetails = dictionary["shouldAskUserDetails"]
+        else { return }
+        enablePreChatForm = Bool.init(shouldAskUserDetails) ?? false
         Zendesk.initialize(appId: appId, clientId: oauthClientId, zendeskUrl:zendeskUrl)
         Support.initialize(withZendesk: Zendesk.instance)
         AnswerBot.initialize(withZendesk: Zendesk.instance, support: Support.instance!)
@@ -59,17 +69,32 @@ public class SwiftZendeskSupportPlugin: NSObject, FlutterPlugin {
     }
     
     func setVisitorInfo(dictionary: Dictionary<String, String>){
-        guard let name = dictionary["name"],
-                let email = dictionary["email"],
-                let phoneNumber = dictionary["phoneNumber"]
-        else { return }
-        chatConfiguration?.isAgentAvailabilityEnabled = false
-        chatConfiguration?.isPreChatFormEnabled = true
-        chatAPIConfiguration?.visitorInfo = VisitorInfo(name: name, email: email, phoneNumber: phoneNumber)
-        Chat.instance?.configuration = chatAPIConfiguration!
-        let identity = Identity.createAnonymous(name: name, email: email)
-        Zendesk.instance?.setIdentity(identity)
-        
+        var email = ""
+        var name = ""
+        var phoneNumber = ""
+
+        if(enablePreChatForm){
+            chatConfiguration?.isPreChatFormEnabled = true
+            chatConfiguration?.preChatFormConfiguration = ChatFormConfiguration(name: .required,
+                                                                           email: .required,
+                                                                           phoneNumber: .required,
+                                                                           department: .hidden)
+           let identity = Identity.createAnonymous()
+           Zendesk.instance?.setIdentity(identity)
+        } else {
+            chatConfiguration?.isPreChatFormEnabled = false
+            chatConfiguration?.preChatFormConfiguration = ChatFormConfiguration(name: .hidden,
+                                                                           email: .hidden,
+                                                                           phoneNumber: .hidden,
+                                                                           department: .hidden)
+            email = dictionary["email"] ?? ""
+            name = dictionary["name"] ?? ""
+            phoneNumber = dictionary["phoneNumber"] ?? ""
+            chatAPIConfiguration?.visitorInfo = VisitorInfo(name: name, email: email, phoneNumber: phoneNumber)
+            let identity = Identity.createAnonymous(name: name, email: email)
+            Zendesk.instance?.setIdentity(identity)
+            Chat.instance?.configuration = chatAPIConfiguration!
+        }
     }
     
     func startChat() throws{

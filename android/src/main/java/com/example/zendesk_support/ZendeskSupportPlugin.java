@@ -21,6 +21,7 @@ import io.flutter.plugin.common.MethodChannel.Result;
 import zendesk.answerbot.AnswerBot;
 import zendesk.answerbot.AnswerBotEngine;
 import zendesk.chat.Chat;
+import zendesk.chat.PreChatFormFieldStatus;
 import zendesk.chat.ChatConfiguration;
 import zendesk.chat.ChatEngine;
 import zendesk.chat.ChatProvidersConfiguration;
@@ -46,7 +47,8 @@ public class ZendeskSupportPlugin implements FlutterPlugin, ActivityAware, Metho
     private MethodChannel channel;
     private Context context;
     private Activity activity;
-
+    private boolean enablePreChatForm;
+    private ChatConfiguration chatConfiguration;
 
     @Override
     public void onAttachedToEngine(@NonNull FlutterPluginBinding flutterPluginBinding) {
@@ -90,6 +92,7 @@ public class ZendeskSupportPlugin implements FlutterPlugin, ActivityAware, Metho
         final String appId = call.argument("appId");
         final String oauthClientId = call.argument("oauthClientId");
         final String chatAccountKey = call.argument("chatAccountKey");
+        enablePreChatForm = Boolean.parseBoolean(call.argument("shouldAskUserDetails"));
         Zendesk.INSTANCE.init(activity, zendeskUrl, appId, oauthClientId);
         Support.INSTANCE.init(Zendesk.INSTANCE);
         AnswerBot.INSTANCE.init(Zendesk.INSTANCE, Guide.INSTANCE);
@@ -98,25 +101,35 @@ public class ZendeskSupportPlugin implements FlutterPlugin, ActivityAware, Metho
 
     public void setVisitorInfo(@NonNull MethodCall call) {
         Logger.setLoggable(true);
-        final String name = call.argument("name");
-        final String email = call.argument("email");
-        final String phoneNumber = call.argument("phoneNumber");
-        Identity identity = new AnonymousIdentity.Builder()
-                .withNameIdentifier(name)
-                .withEmailIdentifier(email).build();
-        Zendesk.INSTANCE.setIdentity(identity);
-        VisitorInfo visitorInfo = VisitorInfo.builder()
-                .withName(name)
-                .withEmail(email)
-                .withPhoneNumber(phoneNumber)
-                .build();
+        String email = call.argument("email");
+        String name = call.argument("name");
+        String phoneNumber = call.argument("phoneNumber");
 
+        if (enablePreChatForm) {
+            chatConfiguration = ChatConfiguration.builder().withPreChatFormEnabled(true)
+                    .withNameFieldStatus(PreChatFormFieldStatus.REQUIRED)
+                    .withEmailFieldStatus(PreChatFormFieldStatus.REQUIRED)
+                    .withPhoneFieldStatus(PreChatFormFieldStatus.REQUIRED)
+                    .withDepartmentFieldStatus(PreChatFormFieldStatus.HIDDEN)
+                    .build();
+            Zendesk.INSTANCE.setIdentity(new AnonymousIdentity());
+        } else {
+            chatConfiguration = ChatConfiguration.builder().withPreChatFormEnabled(false)
+                    .build();
+            name = name == null ? "" : name;
+            email = email == null ? "" : email;
+            phoneNumber = phoneNumber == null ? "" : phoneNumber;
+            Identity identity = new AnonymousIdentity.Builder().withNameIdentifier(name)
+                    .withEmailIdentifier(email).build();
+            Zendesk.INSTANCE.setIdentity(identity);
+            VisitorInfo visitorInfo = VisitorInfo.builder().withName(name).withEmail(email)
+                    .withPhoneNumber(phoneNumber).build();
 
-        ChatProvidersConfiguration chatProvidersConfiguration = ChatProvidersConfiguration.builder()
-                .withVisitorInfo(visitorInfo)
-                .build();
+            ChatProvidersConfiguration chatProvidersConfiguration = ChatProvidersConfiguration.builder()
+                    .withVisitorInfo(visitorInfo).build();
 
-        Chat.INSTANCE.setChatProvidersConfiguration(chatProvidersConfiguration);
+            Chat.INSTANCE.setChatProvidersConfiguration(chatProvidersConfiguration);
+        }
     }
 
     public void startChat() {
@@ -124,12 +137,9 @@ public class ZendeskSupportPlugin implements FlutterPlugin, ActivityAware, Metho
         Engine answerBotEngine = AnswerBotEngine.engine();
         Engine supportEngine = SupportEngine.engine();
         Engine chatEngine = ChatEngine.engine();
-        ChatConfiguration chatConfiguration = ChatConfiguration.builder().withAgentAvailabilityEnabled(false).build();
-        MessagingActivity.builder()
-                .withEngines(answerBotEngine, supportEngine, chatEngine)
+        MessagingActivity.builder().withEngines(answerBotEngine, supportEngine, chatEngine)
                 .show(activity, chatConfiguration);
     }
-
 
     @Override
     public void onAttachedToActivity(@NonNull ActivityPluginBinding binding) {
