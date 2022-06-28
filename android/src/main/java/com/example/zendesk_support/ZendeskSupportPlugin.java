@@ -75,6 +75,10 @@ public class ZendeskSupportPlugin implements FlutterPlugin, ActivityAware, Metho
                 startChat();
                 result.success(true);
                 break;
+            case "resetUserIdentity":
+                resetUserIdentity();
+                result.success(true);
+                break;
             default:
                 result.notImplemented();
                 break;
@@ -139,6 +143,10 @@ public class ZendeskSupportPlugin implements FlutterPlugin, ActivityAware, Metho
         Engine chatEngine = ChatEngine.engine();
         MessagingActivity.builder().withEngines(answerBotEngine, supportEngine, chatEngine)
                 .show(activity, chatConfiguration);
+    }
+
+    public void resetUserIdentity(){
+        Chat.INSTANCE.resetIdentity();
     }
 
     @Override

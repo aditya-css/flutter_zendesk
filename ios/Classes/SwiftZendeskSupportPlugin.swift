@@ -48,6 +48,9 @@ public class SwiftZendeskSupportPlugin: NSObject, FlutterPlugin {
 //                 os_log("error:")
             }
             result(true)
+        case "resetUserIdentity":
+            resetUserIdentity()
+            result(true)
         default:
             result("iOS " + UIDevice.current.systemVersion)
         }
@@ -73,14 +76,13 @@ public class SwiftZendeskSupportPlugin: NSObject, FlutterPlugin {
         var name = ""
         var phoneNumber = ""
 
-        if(enablePreChatForm){
+        if (enablePreChatForm) {
             chatConfiguration?.isPreChatFormEnabled = true
             chatConfiguration?.preChatFormConfiguration = ChatFormConfiguration(name: .required,
                                                                            email: .required,
                                                                            phoneNumber: .required,
                                                                            department: .hidden)
-           let identity = Identity.createAnonymous()
-           Zendesk.instance?.setIdentity(identity)
+           Zendesk.instance?.setIdentity(Identity.createAnonymous())
         } else {
             chatConfiguration?.isPreChatFormEnabled = false
             chatConfiguration?.preChatFormConfiguration = ChatFormConfiguration(name: .hidden,
@@ -97,7 +99,7 @@ public class SwiftZendeskSupportPlugin: NSObject, FlutterPlugin {
         }
     }
     
-    func startChat() throws{
+    func startChat() throws {
         let answerBotEngine = try AnswerBotEngine.engine()
         let supportEngine = try SupportEngine.engine()
         let chatEngine = try ChatEngine.engine()
@@ -123,6 +125,10 @@ public class SwiftZendeskSupportPlugin: NSObject, FlutterPlugin {
             chatConfiguration = ChatConfiguration()
             chatAPIConfiguration = ChatAPIConfiguration()
         }
+    }
+
+    func resetUserIdentity() {
+        Chat.instance?.resetIdentity {}
     }
   }
 

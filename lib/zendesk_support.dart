@@ -7,6 +7,7 @@ class ZendeskSupport {
   static const _initialize = "initialize";
   static const _setVisitorInfo = "setVisitorInfo";
   static const _startChat = "startChat";
+  static const _resetUserIdentity = "resetUserIdentity";
 
   static Future<String?> get platformVersion async {
     final String? version = await _channel.invokeMethod('getPlatformVersion');
@@ -43,4 +44,7 @@ class ZendeskSupport {
 
   static Future<void> startChat() async =>
       await _channel.invokeMethod<void>(_startChat);
+
+  static Future<void> resetUserIdentity() async =>
+      await _channel.invokeMethod<void>(_resetUserIdentity);
 }
